@@ -3,7 +3,7 @@ services:
     name: qr-platform-api
     runtime: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: npm run db:migrate && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
