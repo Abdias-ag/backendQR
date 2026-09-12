@@ -111,7 +111,9 @@ const createQrCode = async (req, res) => {
     let qrBaseUrl = `${requestProtocol}://${requestHost}/q`;
 
     if (configuredQrBaseUrl && !/localhost|127\.0\.0\.1/.test(configuredQrBaseUrl)) {
-      qrBaseUrl = configuredQrBaseUrl;
+      qrBaseUrl = configuredQrBaseUrl.replace(/\/$/, '').endsWith('/q')
+        ? configuredQrBaseUrl.replace(/\/$/, '')
+        : `${configuredQrBaseUrl.replace(/\/$/, '')}/q`;
     } else if (configuredAppUrl && !/localhost|127\.0\.0\.1/.test(configuredAppUrl)) {
       qrBaseUrl = `${configuredAppUrl.replace(/\/$/, '')}/q`;
     }
