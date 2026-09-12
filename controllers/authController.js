@@ -54,8 +54,9 @@ const register = async (req, res) => {
       type: 'info',
     });
 
-    // Afficher le code de vérification dans le terminal (debug/dev)
-    console.log(`Code vérification pour ${email} (user ${user.id}): ${verificationCode}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Code vérification pour ${email} (user ${user.id}): ${verificationCode}`);
+    }
 
     // Envoyer l'email de vérification
     let emailSent = false;
@@ -171,8 +172,9 @@ const resendVerification = async (req, res) => {
 
     await user.update({ verificationCode, verificationCodeExpires });
 
-    // Afficher le code de vérification dans le terminal (debug/dev)
-    console.log(`Code renvoyé pour ${email} (user ${user.id}): ${verificationCode}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Code renvoyé pour ${email} (user ${user.id}): ${verificationCode}`);
+    }
 
     try {
       await sendVerificationEmail(email, user.firstname, verificationCode);
