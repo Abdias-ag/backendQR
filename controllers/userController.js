@@ -227,6 +227,30 @@ const updateUserStatus = async (req, res) => {
 };
 
 /**
+ * PATCH /api/users/admin/users/:id/verify-email
+ * Confirmer manuellement l'adresse email d'un utilisateur (admin)
+ */
+const verifyUserEmail = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return errorResponse(res, 'Utilisateur introuvable', 404);
+
+    await user.update({
+      isVerified: true,
+      verificationCode: null,
+      verificationCodeExpires: null,
+    });
+
+    return successResponse(res, 'Adresse email confirmée par l\'administrateur', {
+      id: user.id,
+      isVerified: user.isVerified,
+    });
+  } catch (error) {
+    return errorResponse(res, 'Erreur lors de la confirmation de l\'email', 500);
+  }
+};
+
+/**
  * DELETE /api/admin/users/:id
  */
 const deleteUser = async (req, res) => {
@@ -250,5 +274,6 @@ module.exports = {
   getAllUsers,
   getUserById,
   updateUserStatus,
+  verifyUserEmail,
   deleteUser,
 };

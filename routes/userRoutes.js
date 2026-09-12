@@ -51,6 +51,13 @@ router.patch(
   validate,
   userController.updateUserStatus
 );
+router.patch(
+  '/admin/users/:id/verify-email',
+  requireAdmin,
+  param('id').isInt().withMessage('ID invalide'),
+  validate,
+  userController.verifyUserEmail
+);
 router.delete('/admin/users/:id', requireAdmin, param('id').isInt().withMessage('ID invalide'), validate, userController.deleteUser);
 
 // Routes Admin : Journal d'activite

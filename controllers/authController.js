@@ -176,13 +176,15 @@ const resendVerification = async (req, res) => {
       console.log(`Code renvoyé pour ${email} (user ${user.id}): ${verificationCode}`);
     }
 
+    let emailSent = false;
     try {
       await sendVerificationEmail(email, user.firstname, verificationCode);
+      emailSent = true;
     } catch (e) {
       console.error('Erreur email:', e.message);
     }
 
-    return successResponse(res, 'Code de vérification renvoyé.');
+    return successResponse(res, emailSent ? 'Code de vérification renvoyé.' : 'Le code a été régénéré, mais l\'email n\'a pas pu être envoyé.', { emailSent });
   } catch (error) {
     return errorResponse(res, 'Erreur lors de l\'envoi', 500);
   }
