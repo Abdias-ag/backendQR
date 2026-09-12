@@ -15,6 +15,9 @@ const { apiLimiter } = require('./middlewares/rateLimiter');
 
 const app = express();
 
+// Render est placé derrière un proxy HTTPS et transmet l'adresse IP du client.
+app.set('trust proxy', 1);
+
 // Middlewares globaux
 app.use(helmet({
   crossOriginResourcePolicy: false, // Nécessaire pour servir les images d'uploads publiquement
