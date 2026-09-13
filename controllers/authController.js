@@ -26,7 +26,7 @@ const register = async (req, res) => {
 
     // Générer le code de vérification
     const verificationCode = generateNumericCode(6);
-    const verificationCodeExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    const verificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15m
 
     // Créer l'utilisateur
     const user = await User.create({
@@ -58,18 +58,24 @@ const register = async (req, res) => {
       console.log(`Code vérification pour ${email} (user ${user.id}): ${verificationCode}`);
     }
 
-    // Envoyer l'email de vérification
     let emailSent = false;
+
     try {
       await sendVerificationEmail(email, firstname, verificationCode);
       emailSent = true;
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Email de vérification envoyé à ${email}`);
+      }
     } catch (emailError) {
-      console.error('Erreur envoi email:', emailError.message);
+      console.error('Erreur envoi email:', emailError?.message || emailError);
     }
 
     return successResponse(
       res,
-      'Compte créé avec succès. Vérifiez votre email.',
+      emailSent
+        ? 'Compte créé avec succès. Vérifiez votre email.'
+        : 'Compte créé, mais impossible d’envoyer le code de vérification. Vous pouvez demander un nouveau code.',
       {
         id: user.id,
         firstname: user.firstname,
@@ -168,7 +174,7 @@ const resendVerification = async (req, res) => {
     }
 
     const verificationCode = generateNumericCode(6);
-    const verificationCodeExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const verificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
 
     await user.update({ verificationCode, verificationCodeExpires });
 
@@ -180,11 +186,18 @@ const resendVerification = async (req, res) => {
     try {
       await sendVerificationEmail(email, user.firstname, verificationCode);
       emailSent = true;
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Email de vérification renvoyé à ${email}`);
+      }
     } catch (e) {
-      console.error('Erreur email:', e.message);
+      console.error('Erreur email:', e?.message || e);
     }
 
-    return successResponse(res, emailSent ? 'Code de vérification renvoyé.' : 'Le code a été régénéré, mais l\'email n\'a pas pu être envoyé.', { emailSent });
+    return successResponse(
+      res,
+      emailSent ? 'Code de vérification renvoyé.' : 'Le code a été régénéré, mais l\'email n\'a pas pu être envoyé.',
+      { emailSent }
+    );
   } catch (error) {
     return errorResponse(res, 'Erreur lors de l\'envoi', 500);
   }

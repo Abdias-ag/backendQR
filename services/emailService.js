@@ -1,28 +1,75 @@
 'use strict';
 
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 /**
  * @service EmailService
- * @description Service d'envoi d'emails (vérification, reset password, notifications)
+ * @description Service d'envoi d'emails via l'API HTTPS Brevo
  */
 
-// Créer le transporteur SMTP
-const createTransporter = () => {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS || process.env.SMTP_USER === 'your_email@gmail.com' || process.env.SMTP_PASS === 'your_app_password') {
-    throw new Error('SMTP non configuré : renseignez SMTP_USER et SMTP_PASS dans backend/.env');
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+
+const sendBrevoEmail = async ({ to, subject, html }) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const senderName = process.env.BREVO_SENDER_NAME;
+
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY non configuré');
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_PORT === '465',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+  if (!senderEmail) {
+    throw new Error('BREVO_SENDER_EMAIL non configuré');
+  }
+
+  if (!senderName) {
+    throw new Error('BREVO_SENDER_NAME non configuré');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: senderName,
+          email: senderEmail,
+        },
+        to: [
+          {
+            email: to,
+          },
+        ],
+        subject,
+        htmlContent: html,
+      }),
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = data?.message || `Brevo API error (${response.status})`;
+      throw new Error(message);
+    }
+
+    return data;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Brevo API timeout after 15s');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 /**
@@ -74,7 +121,6 @@ const emailTemplate = (content) => `
  * @param {string} code - Code de vérification
  */
 const sendVerificationEmail = async (to, name, code) => {
-  const transporter = createTransporter();
   const content = `
     <h2 style="font-size: 22px; margin-bottom: 12px;">Vérifiez votre compte 👋</h2>
     <p style="color: #555; line-height: 1.6;">Bonjour <strong>${name}</strong>,</p>
@@ -82,13 +128,12 @@ const sendVerificationEmail = async (to, name, code) => {
     <div class="code-box">
       <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Votre code de vérification</p>
       <div class="code">${code}</div>
-      <p style="color: #999; font-size: 12px; margin-top: 8px;">Valable 24 heures</p>
+      <p style="color: #999; font-size: 12px; margin-top: 8px;">Valable 15 minutes</p>
     </div>
     <p style="color: #555; font-size: 14px;">Si vous n'avez pas créé de compte, ignorez cet email.</p>
   `;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"QR Platform" <no-reply@qr-platform.com>',
+  return sendBrevoEmail({
     to,
     subject: `${code} - Code de vérification QR Platform`,
     html: emailTemplate(content),
@@ -102,7 +147,6 @@ const sendVerificationEmail = async (to, name, code) => {
  * @param {string} code - Code de réinitialisation
  */
 const sendResetPasswordEmail = async (to, name, code) => {
-  const transporter = createTransporter();
   const content = `
     <h2 style="font-size: 22px; margin-bottom: 12px;">Réinitialisation du mot de passe 🔐</h2>
     <p style="color: #555; line-height: 1.6;">Bonjour <strong>${name}</strong>,</p>
@@ -110,13 +154,12 @@ const sendResetPasswordEmail = async (to, name, code) => {
     <div class="code-box">
       <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Code de réinitialisation</p>
       <div class="code">${code}</div>
-      <p style="color: #999; font-size: 12px; margin-top: 8px;">Valable 1 heure</p>
+      <p style="color: #999; font-size: 12px; margin-top: 8px;">Valable 15 minutes</p>
     </div>
     <p style="color: #e63946; font-size: 14px;">⚠️ Si vous n'avez pas fait cette demande, changez votre mot de passe immédiatement.</p>
   `;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"QR Platform" <no-reply@qr-platform.com>',
+  return sendBrevoEmail({
     to,
     subject: `${code} - Réinitialisation mot de passe QR Platform`,
     html: emailTemplate(content),
@@ -129,7 +172,6 @@ const sendResetPasswordEmail = async (to, name, code) => {
  * @param {string} name - Prénom
  */
 const sendWelcomeEmail = async (to, name) => {
-  const transporter = createTransporter();
   const content = `
     <h2 style="font-size: 22px; margin-bottom: 12px;">Bienvenue sur QR Platform ! 🎉</h2>
     <p style="color: #555; line-height: 1.6;">Bonjour <strong>${name}</strong>,</p>
@@ -145,8 +187,7 @@ const sendWelcomeEmail = async (to, name) => {
     </ul>
   `;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"QR Platform" <no-reply@qr-platform.com>',
+  return sendBrevoEmail({
     to,
     subject: '🎉 Bienvenue sur QR Platform !',
     html: emailTemplate(content),
