@@ -38,8 +38,8 @@ const errorResponse = (res, message, statusCode = 500, code = null, errors = nul
 /**
  * Réponse paginée
  */
-const paginatedResponse = (res, message, data, pagination) => {
-  return res.status(200).json({
+const paginatedResponse = (res, message, data, pagination, meta = null) => {
+  const response = {
     success: true,
     message,
     data,
@@ -51,7 +51,10 @@ const paginatedResponse = (res, message, data, pagination) => {
       hasNextPage: pagination.page < Math.ceil(pagination.total / pagination.limit),
       hasPrevPage: pagination.page > 1,
     },
-  });
+  };
+
+  if (meta !== null) response.meta = meta;
+  return res.status(200).json(response);
 };
 
 module.exports = {
